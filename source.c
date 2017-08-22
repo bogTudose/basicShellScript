@@ -11,9 +11,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+
 #define LSH_RL_BUFSIZE 1024
 #define LSH_TOK_BUFSIZE 64
 #define LSH_TOK_DELIM " \t\r\n\a"
+#define RESET_COLOR "\e[m"
+#define MAKE_GREEN "\e[32m"
+#define MAKE_BLUE "\e[36m"
 
 
 
@@ -99,14 +106,38 @@ int lsh_ls(char **args)
 		printf("\n ERROR: Could not open the working the directory");
 		//return -1;
 	}
-	printf("\n> ");
+	printf("> ");
 	for(count = 0; NULL != (dptr = readdir(dp)); count ++)
 	{
 		if(dptr ->d_name[0] != '.')
 		{
-			printf("%s ",dptr->d_name);
+			if(!access(dptr->d_name,X_OK))
+			{
+				int fd = -1;
+				struct stat st;
+				fd = open(dptr->d_name,O_RDONLY,0);
+				if(fd == -1)
+				{
+					printf("Opening file/directory failed");
+				}
+				fstat(fd,&st);
+				if(S_ISDIR(st.st_mode))
+				{
+					 printf(MAKE_BLUE"%s     "RESET_COLOR,dptr->d_name);
+				}
+				else
+				{
+					 printf(MAKE_GREEN"%s     "RESET_COLOR,dptr->d_name);
+				}
+				close(fd);
+			}
+			else
+			{
+				printf("%s     ",dptr->d_name);
+			}
 		}
 	}
+	printf("\n");
 	return 1;
 }
 
@@ -115,7 +146,7 @@ int lsh_launch(char **args)
 	pid_t pid, wpid;
 	int status;
 	pid = fork();
-	printf("My pid is %d", pid);
+	//printf("My pid is %d", pid);
 	if(pid == 0)
 	{
 		if(execvp(args[0],args) == -1)
